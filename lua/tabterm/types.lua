@@ -68,6 +68,9 @@
 ---@class tabterm.EventIntegrationPayload
 ---@field integration tabterm.IntegrationKind
 
+---@class tabterm.EventShellExecutedPayload
+---@field command_label string?
+
 ---@class tabterm.EventShellFinishedPayload
 ---@field code integer?
 
@@ -146,6 +149,7 @@
 
 ---@class tabterm.ShellCommandExecutedEvent: tabterm.EventBase
 ---@field type "SHELL_COMMAND_EXECUTED"
+---@field payload tabterm.EventShellExecutedPayload?
 
 ---@class tabterm.ShellCommandFinishedEvent: tabterm.EventBase
 ---@field type "SHELL_COMMAND_FINISHED"

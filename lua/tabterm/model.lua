@@ -43,6 +43,7 @@ local M = {}
 ---@field unread boolean
 ---@field kind tabterm.NotificationKind
 ---@field line string?
+---@field command_label string?
 
 ---@class tabterm.TerminalSnapshot
 ---@field title string?
@@ -54,6 +55,7 @@ local M = {}
 ---@class tabterm.TerminalCommandRuntime
 ---@field integration tabterm.IntegrationKind
 ---@field phase tabterm.CommandPhase
+---@field label string?
 
 ---@class tabterm.TerminalRuntime
 ---@field phase tabterm.TerminalPhase
@@ -263,6 +265,7 @@ function M.new_terminal(id, spec)
 				unread = false,
 				kind = "unknown",
 				line = nil,
+				command_label = nil,
 			},
 		},
 		runtime = {
@@ -271,6 +274,7 @@ function M.new_terminal(id, spec)
 			command = {
 				integration = "none",
 				phase = "unknown",
+				label = nil,
 			},
 		},
 	}
@@ -329,6 +333,9 @@ function M.ensure_terminal_shape(id, terminal)
 	if terminal.snapshot.notification.line == nil then
 		terminal.snapshot.notification.line = nil
 	end
+	if terminal.snapshot.notification.command_label == nil then
+		terminal.snapshot.notification.command_label = nil
+	end
 
 	terminal.runtime = terminal.runtime or {}
 	if terminal.runtime.phase == nil then
@@ -343,6 +350,9 @@ function M.ensure_terminal_shape(id, terminal)
 	end
 	if terminal.runtime.command.phase == nil then
 		terminal.runtime.command.phase = "unknown"
+	end
+	if terminal.runtime.command.label == nil then
+		terminal.runtime.command.label = nil
 	end
 
 	return terminal
@@ -422,6 +432,42 @@ function M.command_label(terminal)
 	end
 
 	return cmd
+end
+
+---@param value any
+---@return string?
+local function non_empty_label(value)
+	if type(value) ~= "string" or value == "" or vim.trim(value) == "" then
+		return nil
+	end
+	return value
+end
+
+---@param terminal tabterm.Terminal?
+---@return string
+function M.sidebar_command_label(terminal)
+	if not terminal then
+		return M.command_label(terminal)
+	end
+
+	if terminal.spec.name_override and terminal.spec.name_override ~= "" then
+		return terminal.spec.name_override
+	end
+
+	if terminal.spec.kind == "shell" then
+		local running_label = non_empty_label(terminal.runtime.command.label)
+		if M.is_waiting(terminal) then
+			return running_label or M.command_label(terminal)
+		end
+
+		local notification = terminal.snapshot.notification
+		local result_label = notification and non_empty_label(notification.command_label) or nil
+		if notification and notification.unread and result_label then
+			return result_label
+		end
+	end
+
+	return M.command_label(terminal)
 end
 
 ---@param terminal tabterm.Terminal?
@@ -654,7 +700,7 @@ local function build_command_line(workspace, terminal, index, width, line_idx)
 	local badge_width = badge and vim.fn.strdisplaywidth(badge.text) or 0
 	command_max_width = math.max(1, command_max_width - badge_width)
 
-	local command, truncated = truncate_display(M.command_label(terminal), command_max_width)
+	local command, truncated = truncate_display(M.sidebar_command_label(terminal), command_max_width)
 	local title = prefix .. command_prefix .. command
 	local command_start = #prefix + #command_prefix
 	local deco = {}

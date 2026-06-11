@@ -218,6 +218,7 @@ local function apply_unsanitized(event)
 	if event.type == types.events.TERMINAL_SELECT_REQUESTED then
 		workspace.active_terminal_id = terminal_id
 		terminal.snapshot.notification.unread = false
+		terminal.snapshot.notification.command_label = nil
 		prune_hidden_exited_cmds(workspace, terminal_id)
 		return workspace
 	end
@@ -225,6 +226,7 @@ local function apply_unsanitized(event)
 	if event.type == types.events.TERMINAL_READ_REQUESTED then
 		if terminal then
 			terminal.snapshot.notification.unread = false
+			terminal.snapshot.notification.command_label = nil
 		end
 		return workspace
 	end
@@ -259,6 +261,8 @@ local function apply_unsanitized(event)
 		terminal.runtime.phase = "starting"
 		terminal.runtime.channel_id = nil
 		terminal.runtime.command.phase = terminal.spec.kind == "cmd" and "running" or "unknown"
+		terminal.runtime.command.label = nil
+		terminal.snapshot.notification.command_label = nil
 		return workspace
 	end
 
@@ -272,6 +276,7 @@ local function apply_unsanitized(event)
 		terminal.runtime.phase = "stopped"
 		terminal.runtime.channel_id = nil
 		terminal.runtime.command.phase = "unknown"
+		terminal.runtime.command.label = nil
 		terminal.snapshot.last_result.kind = "error"
 		terminal.snapshot.last_result.code = nil
 		terminal.snapshot.last_result.source = "process"
@@ -279,6 +284,7 @@ local function apply_unsanitized(event)
 		terminal.snapshot.notification.unread = false
 		terminal.snapshot.notification.kind = "error"
 		terminal.snapshot.notification.line = nil
+		terminal.snapshot.notification.command_label = nil
 		return workspace
 	end
 
@@ -286,6 +292,7 @@ local function apply_unsanitized(event)
 		terminal.runtime.phase = "exited"
 		terminal.runtime.channel_id = nil
 		terminal.runtime.command.phase = "unknown"
+		terminal.runtime.command.label = nil
 
 		local source = event.payload and event.payload.source
 		if not source then
@@ -297,6 +304,7 @@ local function apply_unsanitized(event)
 		terminal.snapshot.last_result.source = source
 		terminal.snapshot.notification.unread = not terminal_is_visible(workspace, terminal_id)
 		terminal.snapshot.notification.kind = terminal.snapshot.last_result.kind
+		terminal.snapshot.notification.command_label = nil
 		return workspace
 	end
 
@@ -317,6 +325,8 @@ local function apply_unsanitized(event)
 
 	if event.type == types.events.SHELL_COMMAND_EXECUTED then
 		terminal.runtime.command.phase = "running"
+		local label = event.payload and event.payload.command_label or nil
+		terminal.runtime.command.label = type(label) == "string" and vim.trim(label) ~= "" and label or nil
 		return workspace
 	end
 
@@ -328,11 +338,16 @@ local function apply_unsanitized(event)
 		terminal.snapshot.notification.unread = not terminal_is_visible(workspace, terminal_id)
 		terminal.snapshot.notification.kind = terminal.snapshot.last_result.kind
 		terminal.snapshot.notification.line = nil
+		terminal.snapshot.notification.command_label = terminal.snapshot.notification.unread
+				and terminal.runtime.command.label
+			or nil
+		terminal.runtime.command.label = nil
 		return workspace
 	end
 
 	if event.type == types.events.SHELL_COMMAND_ABORTED then
 		terminal.runtime.command.phase = "prompt"
+		terminal.runtime.command.label = nil
 		return workspace
 	end
 
@@ -352,6 +367,7 @@ local function apply_unsanitized(event)
 		terminal.snapshot.notification.unread = true
 		terminal.snapshot.notification.kind = kind
 		terminal.snapshot.notification.line = line
+		terminal.snapshot.notification.command_label = nil
 		if line and line ~= "" then
 			terminal.snapshot.last_output_line = line
 		end
@@ -362,6 +378,8 @@ local function apply_unsanitized(event)
 		terminal.runtime.phase = "stopped"
 		terminal.runtime.channel_id = nil
 		terminal.runtime.command.phase = "unknown"
+		terminal.runtime.command.label = nil
+		terminal.snapshot.notification.command_label = nil
 		return workspace
 	end
 

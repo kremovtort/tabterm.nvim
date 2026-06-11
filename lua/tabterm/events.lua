@@ -640,6 +640,7 @@ function M.setup_autocmds()
 					terminal_id = ref.terminal_id,
 				}, { defer_refresh = true })
 			elseif code == "C" then
+				local command_label = vim.b[ev.buf].term_title
 				M.dispatch({
 					type = types.events.SHELL_INTEGRATION_DETECTED,
 					tabpage = ref.tabpage,
@@ -650,6 +651,7 @@ function M.setup_autocmds()
 					type = types.events.SHELL_COMMAND_EXECUTED,
 					tabpage = ref.tabpage,
 					terminal_id = ref.terminal_id,
+					payload = { command_label = command_label },
 				}, { defer_refresh = true })
 			elseif code == "D" and exit_code ~= nil then
 				M.dispatch({
