@@ -1,7 +1,6 @@
 ---@alias tabterm.EventType
 ---| "WORKSPACE_OPEN_REQUESTED"
 ---| "WORKSPACE_CLOSE_REQUESTED"
----| "WORKSPACE_TOGGLE_REQUESTED"
 ---| "TERMINAL_CREATE_REQUESTED"
 ---| "TERMINAL_DELETE_REQUESTED"
 ---| "TERMINAL_RENAME_REQUESTED"
@@ -90,10 +89,6 @@
 
 ---@class tabterm.WorkspaceCloseRequestedEvent: tabterm.EventBase
 ---@field type "WORKSPACE_CLOSE_REQUESTED"
-
----@class tabterm.WorkspaceToggleRequestedEvent: tabterm.EventBase
----@field type "WORKSPACE_TOGGLE_REQUESTED"
----@field payload tabterm.EventWinPayload?
 
 ---@class tabterm.TerminalCreateRequestedEvent: tabterm.EventBase
 ---@field type "TERMINAL_CREATE_REQUESTED"
@@ -185,7 +180,6 @@
 ---@alias tabterm.Event
 ---| tabterm.WorkspaceOpenRequestedEvent
 ---| tabterm.WorkspaceCloseRequestedEvent
----| tabterm.WorkspaceToggleRequestedEvent
 ---| tabterm.TerminalCreateRequestedEvent
 ---| tabterm.TerminalDeleteRequestedEvent
 ---| tabterm.TerminalRenameRequestedEvent
@@ -291,7 +285,6 @@ local M = {
 	events = {
 		WORKSPACE_OPEN_REQUESTED = "WORKSPACE_OPEN_REQUESTED",
 		WORKSPACE_CLOSE_REQUESTED = "WORKSPACE_CLOSE_REQUESTED",
-		WORKSPACE_TOGGLE_REQUESTED = "WORKSPACE_TOGGLE_REQUESTED",
 
 		TERMINAL_CREATE_REQUESTED = "TERMINAL_CREATE_REQUESTED",
 		TERMINAL_DELETE_REQUESTED = "TERMINAL_DELETE_REQUESTED",

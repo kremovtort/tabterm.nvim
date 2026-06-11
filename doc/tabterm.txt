@@ -65,7 +65,9 @@ subcommands take no documented arguments.
                                                         *:Tabterm-toggle*
 :Tabterm toggle
         Toggle the workspace for the current tab.  If this opens an empty
-        workspace, tabterm creates and starts a default shell terminal.
+        workspace, tabterm creates and starts a default shell terminal.  If this
+        hides a visible workspace, tabterm uses |tabterm.hide()| behavior and
+        schedules `:checktime`.
 
                                                           *:Tabterm-open*
 :Tabterm open
@@ -76,8 +78,8 @@ subcommands take no documented arguments.
 :Tabterm close
         Hide the workspace by calling `require("tabterm").hide()`.  This closes
         tabterm's floating windows and restores the last editor window when that
-        window is still valid.  It is not a direct alias for
-        `require("tabterm").close()`.
+        window is still valid, then schedules `:checktime`.  It is not a direct
+        alias for `require("tabterm").close()`.
 
                                                          *:Tabterm-shell*
 :Tabterm shell
@@ -133,16 +135,20 @@ open()
                                                              *tabterm.close()*
 close()
         Close tabterm's floating windows for the current tab.  This does not
-        perform editor-window focus restoration; use |tabterm.hide()| for that.
+        perform editor-window focus restoration or schedule `:checktime`; use
+        |tabterm.hide()| for that.
 
                                                               *tabterm.hide()*
 hide()
-        Close the workspace and restore the last editor window when possible.
+        Close the workspace, restore the last editor window when possible, and
+        schedule `:checktime` so loaded file buffers are checked for external
+        changes after returning to the editor.
 
                                                             *tabterm.toggle()*
 toggle()
         Toggle the workspace.  When toggling open, create and start a default
-        shell if the workspace is empty, then focus the panel.
+        shell if the workspace is empty, then focus the panel.  When toggling
+        closed, use |tabterm.hide()| behavior and schedule `:checktime`.
 
                                                          *tabterm.new_shell()*
 new_shell(spec)

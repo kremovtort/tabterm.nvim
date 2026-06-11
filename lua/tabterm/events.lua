@@ -157,7 +157,7 @@ end
 ---@param terminal tabterm.Terminal?
 ---@return boolean
 local function should_schedule_terminal_dispose(terminal)
-	return terminal
+	return terminal ~= nil
 		and (terminal.spec.kind == "shell" or (terminal.spec.kind == "cmd" and terminal.runtime.phase == "exited"))
 end
 

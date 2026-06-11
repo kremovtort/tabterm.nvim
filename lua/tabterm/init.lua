@@ -25,6 +25,12 @@ local function dispatch(event)
 	return events.dispatch(event)
 end
 
+local function schedule_checktime()
+	vim.schedule(function()
+		pcall(vim.cmd, "checktime")
+	end)
+end
+
 ---@param spec tabterm.TerminalSpecInput?
 ---@return tabterm.TerminalSpec
 local function default_shell_spec(spec)
@@ -384,6 +390,7 @@ function M.hide()
 
 	local ui = ui_state.get(workspace.runtime.tabpage)
 	local restore_win = workspace.runtime.last_editor_winid
+	local was_visible = workspace.runtime.visible
 	M.close()
 
 	if
@@ -395,23 +402,26 @@ function M.hide()
 	then
 		pcall(vim.api.nvim_set_current_win, restore_win)
 	end
+
+	if was_visible then
+		schedule_checktime()
+	end
 end
 
 function M.toggle()
 	local workspace = current_workspace(true)
 	---@cast workspace tabterm.Workspace
 	local was_visible = workspace.runtime.visible
-	dispatch({
-		type = types.events.WORKSPACE_TOGGLE_REQUESTED,
-		tabpage = workspace.runtime.tabpage,
-		payload = { winid = vim.api.nvim_get_current_win() },
-	})
-	if not was_visible then
-		if #workspace.terminal_order == 0 then
-			create_and_start(workspace.runtime.tabpage, default_shell_spec())
-		end
-		M.focus_panel()
+	if was_visible then
+		M.hide()
+		return
 	end
+
+	open_workspace_ui(workspace)
+	if #workspace.terminal_order == 0 then
+		create_and_start(workspace.runtime.tabpage, default_shell_spec())
+	end
+	M.focus_panel()
 end
 
 ---@param spec tabterm.TerminalSpecInput?

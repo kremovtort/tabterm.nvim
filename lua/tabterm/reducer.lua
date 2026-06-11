@@ -174,15 +174,6 @@ local function apply_unsanitized(event)
 		return workspace
 	end
 
-	if event.type == types.events.WORKSPACE_TOGGLE_REQUESTED then
-		workspace.runtime.visible = not workspace.runtime.visible
-		if workspace.runtime.visible then
-			workspace.runtime.last_editor_winid = event.payload and event.payload.winid
-				or vim.api.nvim_get_current_win()
-		end
-		return workspace
-	end
-
 	if event.type == types.events.TERMINAL_CREATE_REQUESTED then
 		local payload = event.payload or {}
 		local created = create_terminal(workspace, payload.spec or {}, payload.to_index)

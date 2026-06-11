@@ -186,7 +186,7 @@ Tabterm exposes one user command, `:Tabterm`, with subcommands:
 | --- | --- |
 | `:Tabterm toggle` | Toggle the current tab's workspace. |
 | `:Tabterm open` | Open the workspace and focus the panel. |
-| `:Tabterm close` | Hide the workspace and restore the last editor window when possible. |
+| `:Tabterm close` | Hide the workspace, restore the last editor window when possible. |
 | `:Tabterm shell` | Create, start, and focus a new shell terminal. |
 | `:Tabterm command [cmd]` | Create, start, and focus a one-shot command terminal. Prompts when `cmd` is omitted. |
 | `:Tabterm start` | Start the active terminal, or create a shell if none exists. |
@@ -213,9 +213,9 @@ vim.keymap.set("n", "<leader>tc", tabterm.new_command, { desc = "New tabterm com
 | --- | --- |
 | `setup(opts)` | Merge options with defaults, define highlights, and install autocmds. |
 | `open()` | Open the workspace, creating a default shell if needed. |
-| `hide()` | Hide the workspace and restore editor focus when possible. |
-| `close()` | Close tabterm's floating windows without focus restoration. |
-| `toggle()` | Toggle the workspace. |
+| `hide()` | Hide the workspace, restore editor focus when possible, and schedule `:checktime`. |
+| `close()` | Close tabterm's floating windows without focus restoration or `:checktime`. |
+| `toggle()` | Toggle the workspace. When toggling closed, use `hide()` behavior and schedule `:checktime`. |
 | `new_shell(spec?)` | Create and start a shell terminal. |
 | `new_command(cmd?)` | Create and start a command terminal, prompting when `cmd` is omitted. |
 | `start_active()` | Start or restart the active terminal. |
