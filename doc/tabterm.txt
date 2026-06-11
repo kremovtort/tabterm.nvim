@@ -1,0 +1,446 @@
+*tabterm.txt*  Tab-scoped floating terminal workspace for Neovim
+*tabterm*
+
+==============================================================================
+CONTENTS                                                     *tabterm-contents*
+
+1. Overview                                            |tabterm-overview|
+2. Setup                                               |tabterm-setup|
+3. Commands                                            |tabterm-commands|
+4. Lua API                                             |tabterm-api|
+5. Configuration                                       |tabterm-configuration|
+6. Keymaps                                             |tabterm-keymaps|
+7. Filetypes and winbar                                |tabterm-filetypes|
+8. Lifecycle                                           |tabterm-lifecycle|
+9. Shell integration                                   |tabterm-shell-integration|
+10. Highlights                                         |tabterm-highlights|
+
+==============================================================================
+OVERVIEW                                                     *tabterm-overview*
+
+Tabterm provides a tab-local floating terminal workspace.  Each tabpage gets its
+own sidebar, panel, terminal list, active terminal, and runtime state.
+
+Opening an empty workspace creates and starts a default shell terminal.  Command
+terminals are one-shot terminals created from explicit command text.
+
+==============================================================================
+SETUP                                                           *tabterm-setup*
+
+Load the plugin and call setup from your Neovim configuration: >lua
+
+  require("tabterm").setup({
+    ui = {
+      border = "single",
+      sidebar_width = 30,
+      float = {
+        width = 0.70,
+        height = 0.70,
+      },
+    },
+    shell_integration = {
+      enabled = true,
+      shells = {
+        bash = true,
+        zsh = true,
+      },
+    },
+  })
+<
+
+Calling setup is optional for the default configuration.  User commands and API
+calls initialize tabterm on demand if needed.
+
+==============================================================================
+COMMANDS                                                   *tabterm-commands*
+
+Tabterm defines one user command, `:Tabterm`.  It requires a subcommand.
+Unknown subcommands report an error.  Completion suggests only the first
+subcommand token.
+
+Only `:Tabterm command [cmd]` accepts command text after the subcommand.  Other
+subcommands take no documented arguments.
+
+                                                        *:Tabterm-toggle*
+:Tabterm toggle
+        Toggle the workspace for the current tab.  If this opens an empty
+        workspace, tabterm creates and starts a default shell terminal.
+
+                                                          *:Tabterm-open*
+:Tabterm open
+        Open the workspace for the current tab.  If it is empty, create and start
+        a default shell terminal.  Focus moves to the panel.
+
+                                                         *:Tabterm-close*
+:Tabterm close
+        Hide the workspace by calling `require("tabterm").hide()`.  This closes
+        tabterm's floating windows and restores the last editor window when that
+        window is still valid.  It is not a direct alias for
+        `require("tabterm").close()`.
+
+                                                         *:Tabterm-shell*
+:Tabterm shell
+        Create, start, and focus a new shell terminal at the end of the terminal
+        list.
+
+                                                       *:Tabterm-command*
+:Tabterm command [cmd]
+        Create, start, and focus a command terminal.  When [cmd] is present, all
+        text after the `command` subcommand is used as the command.  When [cmd]
+        is omitted, tabterm prompts with `vim.ui.input()`.
+
+                                                         *:Tabterm-start*
+:Tabterm start
+        Start the active terminal.  If no active terminal exists, create a shell
+        terminal.
+
+                                                        *:Tabterm-rename*
+:Tabterm rename
+        Rename the active terminal.  The prompt default is the current explicit
+        terminal name, if any.
+
+                                                        *:Tabterm-delete*
+:Tabterm delete
+        Delete the active terminal.  Deleting a running terminal asks for
+        confirmation.  Deleting the last terminal closes the workspace.
+
+                                                          *:Tabterm-next*
+:Tabterm next
+        Open the workspace and select the next terminal in terminal order.
+
+                                                          *:Tabterm-prev*
+:Tabterm prev
+        Open the workspace and select the previous terminal in terminal order.
+
+==============================================================================
+LUA API                                                       *tabterm-api*
+
+The documented Lua API is the user-facing subset of `require("tabterm")`.
+Internal mapping and setup helpers exported by the module are intentionally not
+documented here as supported API entries.
+
+                                                            *tabterm.setup()*
+setup(opts)
+        Merge opts with defaults, initialize highlight groups and autocmds, and
+        return the tabterm module table.  See |tabterm-configuration| for opts.
+
+                                                              *tabterm.open()*
+open()
+        Open the current tab's workspace, create and start a default shell when
+        the workspace is empty, and focus the panel.
+
+                                                             *tabterm.close()*
+close()
+        Close tabterm's floating windows for the current tab.  This does not
+        perform editor-window focus restoration; use |tabterm.hide()| for that.
+
+                                                              *tabterm.hide()*
+hide()
+        Close the workspace and restore the last editor window when possible.
+
+                                                            *tabterm.toggle()*
+toggle()
+        Toggle the workspace.  When toggling open, create and start a default
+        shell if the workspace is empty, then focus the panel.
+
+                                                         *tabterm.new_shell()*
+new_shell(spec)
+        Create, start, and focus a new shell terminal at the end of the list.
+        spec may contain:
+
+        `cmd`           Shell command.  Defaults to the `$SHELL` environment
+                        variable, Vim's 'shell' option, or `sh`.
+        `cwd`           Working directory.  Defaults to the current cwd.
+        `name_override` Display name override.
+        `title`         Initial title used before terminal title updates arrive.
+
+        Prefer |tabterm.new_command()| for command terminals.
+
+                                                       *tabterm.new_command()*
+new_command(cmd)
+        Create, start, and focus a command terminal.  If cmd is omitted,
+        tabterm prompts for a command with `vim.ui.input()`.  Empty command text
+        does not create a terminal.
+
+                                                      *tabterm.start_active()*
+start_active()
+        If there is no active terminal, create a shell terminal.  Otherwise open
+        the workspace, start the active terminal, and focus the panel.
+
+                                                     *tabterm.rename_active()*
+rename_active(name_override)
+        Rename the active terminal.  If name_override is nil, prompt for a name.
+        A non-nil empty string clears the explicit name.
+
+                                                     *tabterm.delete_active()*
+delete_active()
+        Delete the active terminal, asking for confirmation first when it is
+        running.  Deleting the last terminal closes the workspace.
+
+                                                    *tabterm.next_terminal()*
+next_terminal()
+        Open the workspace and select the next terminal, wrapping around the
+        terminal list.
+
+                                                    *tabterm.prev_terminal()*
+prev_terminal()
+        Open the workspace and select the previous terminal, wrapping around the
+        terminal list.
+
+                                                    *tabterm.focus_sidebar()*
+focus_sidebar()
+        Focus the sidebar window when the workspace is visible, moving the
+        sidebar cursor to the active terminal when possible.
+
+                                                      *tabterm.focus_panel()*
+focus_panel()
+        Focus the panel window when the workspace is visible.  Live shell
+        terminals enter Insert mode unless the user explicitly left terminal
+        mode.  Exited command terminals stay in Normal mode.
+
+                                                     *tabterm.scroll_panel()*
+scroll_panel(keys)
+        Run a Normal-mode key sequence in the panel window.  Built-in sidebar
+        mappings use this for panel scrolling with `<C-d>`, `<C-u>`, `<C-f>`,
+        and `<C-b>`.
+
+==============================================================================
+CONFIGURATION                                       *tabterm-configuration*
+
+Configuration is passed to |tabterm.setup()|.  Missing values use defaults.
+
+UI options: >lua
+
+  require("tabterm").setup({
+    ui = {
+      border = "single",
+      sidebar_width = 30,
+      float = {
+        width = 0.70,
+        height = 0.70,
+      },
+    },
+  })
+<
+
+`ui.border`                 Default: "single".
+        Accepted string values are "single", "double", "round", and "none".
+        Boolean aliases are accepted: true means "single" and false means
+        "none".  Invalid values fall back to "single".
+
+`ui.sidebar_width`          Default: 30.
+        Width, in columns, requested for the sidebar.  Values are normalized to
+        at least 20 columns.
+
+`ui.float.width`            Default: 0.70.
+        Fraction of `&columns` used for the floating workspace width.
+
+`ui.float.height`           Default: 0.70.
+        Fraction of `&lines` used for the floating workspace height.
+
+Shell integration options: >lua
+
+  require("tabterm").setup({
+    shell_integration = {
+      enabled = true,
+      shells = {
+        bash = true,
+        zsh = true,
+      },
+    },
+  })
+<
+
+`shell_integration.enabled`       Default: true.
+        Enable shell integration for detected supported shell terminals.
+
+`shell_integration.shells.bash`   Default: true.
+        Enable bash integration when the shell executable basename is `bash`.
+
+`shell_integration.shells.zsh`    Default: true.
+        Enable zsh integration when the shell executable basename is `zsh`.
+
+==============================================================================
+KEYMAPS                                                   *tabterm-keymaps*
+
+Tabterm mappings are buffer-local and are installed on tabterm UI buffers.
+
+Sidebar buffer, filetype `tabterm-sidebar`: >
+
+  <CR>      select the terminal under the cursor
+  i         insert a shell before the cursor terminal
+  a         insert a shell after the cursor terminal
+  I         insert a shell at the first position
+  A         insert a shell at the last position
+  c         command-terminal prefix; does nothing by itself
+  ci        insert a command before the cursor terminal
+  ca        insert a command after the cursor terminal
+  cI        insert a command at the first position
+  cA        insert a command at the last position
+  r         rename the terminal under the cursor
+  d         delete the terminal under the cursor
+  J         move the terminal under the cursor down
+  K         move the terminal under the cursor up
+  q         hide the workspace
+  l         focus the panel
+  <C-l>     focus the panel
+  j         move the sidebar cursor down
+  k         move the sidebar cursor up
+  <Down>    move the sidebar cursor down
+  <Up>      move the sidebar cursor up
+  gg        go to terminal 1, or to [count] when a count is provided
+  G         go to the last terminal, or to [count] when a count is provided
+  <C-D>     scroll the panel down half a page
+  <C-U>     scroll the panel up half a page
+  <C-F>     scroll the panel forward one page
+  <C-B>     scroll the panel backward one page
+<
+
+Placeholder panel buffer, filetype `tabterm-panel-placeholder`: >
+
+  <CR>      start the active terminal, or create a shell when none exists
+  i         insert a shell before the active/sidebar terminal
+  a         insert a shell after the active/sidebar terminal
+  I         insert a shell at the first position
+  A         insert a shell at the last position
+  c         command-terminal prefix; does nothing by itself
+  ci        insert a command before the active/sidebar terminal
+  ca        insert a command after the active/sidebar terminal
+  cI        insert a command at the first position
+  cA        insert a command at the last position
+  r         rename the active terminal
+  d         delete the active terminal
+  q         hide the workspace
+  <C-h>     focus the sidebar
+<
+
+Terminal panel buffers, filetypes `tabterm-panel-shell` and
+`tabterm-panel-command`: >
+
+  <CR>      confirm the active terminal
+  <C-h>     focus the sidebar in Normal and Terminal modes
+<
+
+For `<CR>` in a terminal panel, live terminals enter Insert mode.  Stopped
+terminals, and exited shell terminals, start or restart.  Exited command
+terminals are closed.
+
+==============================================================================
+FILETYPES AND WINBAR                                   *tabterm-filetypes*
+
+Tabterm uses these filetypes for its UI buffers:
+
+`tabterm-backdrop`             Background dimmer buffer.
+`tabterm-sidebar`              Terminal list sidebar.
+`tabterm-panel-placeholder`    Placeholder panel for empty, stopped, failed, or
+                               unavailable terminal states.
+`tabterm-panel-shell`          Shell terminal panel.
+`tabterm-panel-command`        Command terminal panel.
+
+You can target these buffers with normal `FileType` autocmds.  Built-in
+buffer-local mappings are part of tabterm's UI contract and are installed by the
+plugin when it creates the buffers.
+
+Panel winbar behavior:
+        Exited command terminals show a panel winbar.  It includes the result
+        status (`success`, `error`, or `finished`), the command label, the cwd
+        when available, and a `<CR> close` hint.  Shell terminals and non-exited
+        command terminals clear the panel winbar.
+
+==============================================================================
+LIFECYCLE                                               *tabterm-lifecycle*
+
+Workspace behavior:
+        Opening or toggling an empty workspace creates and starts a default
+        shell terminal.  Hiding or closing the workspace removes tabterm's
+        floating windows but keeps the workspace state for the current tab.
+
+Terminal start behavior:
+        `start_active()` creates a shell when no active terminal exists.
+        Otherwise it opens the workspace and starts the active terminal.
+
+Deletion behavior:
+        Deleting a running terminal asks for confirmation.  A command terminal is
+        considered running while its process is live; a shell terminal is
+        considered running while shell integration reports an active command.
+        Deleting the last terminal closes the workspace.
+
+Focus after active deletion:
+        When the visible active terminal is deleted and other terminals remain,
+        tabterm stabilizes the panel and moves focus to the sidebar when
+        possible, rather than returning directly to the editor.
+
+Exited command cleanup:
+        Exited command terminals are kept while visible so their output can be
+        inspected.  Hidden exited command terminals are pruned when the workspace
+        closes, when a new terminal is created, or when another terminal is
+        selected.
+
+==============================================================================
+SHELL INTEGRATION                             *tabterm-shell-integration*
+
+Shell integration is enabled by default for detected bash and zsh shell
+terminals.  Detection uses the executable basename of the shell command.
+Command terminals do not use this integration path.
+
+When enabled, the integration scripts emit terminal control sequences that
+tabterm handles from Neovim `TermRequest` events:
+
+`OSC 133;A`       prompt started; integration is at least prompt-aware
+`OSC 133;B`       command input started
+`OSC 133;C`       command executed; integration is rich
+`OSC 133;D;code`  command finished with exit code
+`OSC 7`           current working directory update
+`OSC 2`           terminal title update
+
+Tabterm uses these signals to track prompt state, command state, cwd, title, and
+command results.
+
+Bash startup:
+        Bash integration starts bash with a generated `--rcfile` under
+        `stdpath("cache")/tabterm/shell-integration/bash/`.  The generated file
+        sources the user's `~/.bashrc` when it is readable, then sources the
+        tabterm bash integration script.
+
+Zsh startup:
+        Zsh integration starts zsh with a generated `ZDOTDIR` under
+        `stdpath("cache")/tabterm/shell-integration/zsh/`.  The generated
+        `.zshrc` restores `TABTERM_ORIGINAL_ZDOTDIR` when present, sources the
+        user's original `.zshrc` when it is readable, then sources the tabterm
+        zsh integration script.
+
+Caveats:
+        Startup files that exit early, exec another shell, or rewrite
+        `PROMPT_COMMAND`, zsh `preexec`, or zsh `precmd` hooks after tabterm's
+        integration loads may reduce tabterm's shell state tracking.
+
+==============================================================================
+HIGHLIGHTS                                             *tabterm-highlights*
+
+Tabterm defines these highlight groups.  Users may override them through normal
+Neovim highlight configuration, for example with `:highlight` or
+`vim.api.nvim_set_hl()`.
+
+`TabtermSidebarNumberActive`    Active terminal number in the sidebar.
+`TabtermSidebarNumberInactive`  Inactive terminal numbers in the sidebar.
+`TabtermSidebarCommand`         Command/title text and terminal icon.
+`TabtermSidebarCwd`             Cwd line and cwd text.
+`TabtermPanelHeaderMuted`       Muted panel winbar text.
+`TabtermPanelHeaderSuccess`     Success status in the panel winbar.
+`TabtermPanelHeaderUnknown`     Finished/unknown status in the panel winbar.
+`TabtermPanelHeaderError`       Error status in the panel winbar.
+`TabtermSidebar`                Sidebar window Normal highlight.
+`TabtermPanel`                  Panel window Normal highlight.
+`TabtermSidebarSuccess`         Success notification badge.
+`TabtermSidebarUnknown`         Unknown notification badge.
+`TabtermSidebarLoader`          Waiting spinner badge.
+`TabtermSidebarError`           Error notification badge.
+`TabtermSidebarCommandFade1`    First fade cell for truncated command text.
+`TabtermSidebarCommandFade2`    Second fade cell for truncated command text.
+`TabtermSidebarCwdFade1`        First fade cell for truncated cwd text.
+`TabtermSidebarCwdFade2`        Second fade cell for truncated cwd text.
+`TabtermSidebarHover`           Highlight for the sidebar cursor terminal.
+`TabtermBackdrop`               Backdrop window background.
+
+==============================================================================
+ vim:tw=78:ts=8:noet:ft=help:norl:
