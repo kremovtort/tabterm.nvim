@@ -111,7 +111,7 @@ local function normalize_title(title, fallback_cmd, cwd_tail)
 	end
 
 	if cwd_tail ~= "" and (title == cwd_tail or title:find(cwd_tail, 1, true)) then
-		title = tail(vim.env.SHELL or "")
+		title = tail(M.default_shell_cmd())
 	end
 
 	if title:sub(1, 5) == "/nix/" then
@@ -235,13 +235,24 @@ function M.new_workspace(tabpage)
 	}
 end
 
+---@param value string?
+---@return string?
+local function non_empty(value)
+	return value and value ~= "" and value or nil
+end
+
+---@return string
+function M.default_shell_cmd()
+	return non_empty(vim.o.shell) or non_empty(vim.env.SHELL) or "sh"
+end
+
 ---@param id string
 ---@param spec tabterm.TerminalSpecInput?
 ---@return tabterm.Terminal
 function M.new_terminal(id, spec)
 	spec = spec or {}
 	local kind = spec.kind == "cmd" and "cmd" or "shell"
-	local cmd = spec.cmd or (kind == "shell" and (vim.env.SHELL or vim.o.shell or "sh") or "")
+	local cmd = spec.cmd or (kind == "shell" and M.default_shell_cmd() or "")
 	local cwd = spec.cwd or (vim.uv or vim.loop).cwd() or vim.fn.getcwd()
 
 	return {
@@ -281,11 +292,6 @@ function M.new_terminal(id, spec)
 end
 
 ---@return string
-local function default_shell_cmd()
-	return vim.env.SHELL or vim.o.shell or "sh"
-end
-
----@return string
 local function default_cwd()
 	return (vim.uv or vim.loop).cwd() or vim.fn.getcwd()
 end
@@ -303,7 +309,7 @@ function M.ensure_terminal_shape(id, terminal)
 	terminal.spec = terminal.spec or {}
 	terminal.spec.kind = terminal.spec.kind == "cmd" and "cmd" or "shell"
 	if terminal.spec.cmd == nil then
-		terminal.spec.cmd = terminal.spec.kind == "shell" and default_shell_cmd() or ""
+		terminal.spec.cmd = terminal.spec.kind == "shell" and M.default_shell_cmd() or ""
 	end
 	if not terminal.spec.cwd or terminal.spec.cwd == "" then
 		terminal.spec.cwd = default_cwd()

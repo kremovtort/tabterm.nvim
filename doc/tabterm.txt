@@ -21,8 +21,9 @@ OVERVIEW                                                     *tabterm-overview*
 Tabterm provides a tab-local floating terminal workspace.  Each tabpage gets its
 own sidebar, panel, terminal list, active terminal, and runtime state.
 
-Opening an empty workspace creates and starts a default shell terminal.  Command
-terminals are one-shot terminals created from explicit command text.
+Opening an empty workspace creates and starts a default shell terminal.  The
+default shell command uses Vim's 'shell' option, then `$SHELL`, then `sh`.
+Command terminals are one-shot terminals created from explicit command text.
 
 ==============================================================================
 SETUP                                                           *tabterm-setup*
@@ -148,8 +149,8 @@ new_shell(spec)
         Create, start, and focus a new shell terminal at the end of the list.
         spec may contain:
 
-        `cmd`           Shell command.  Defaults to the `$SHELL` environment
-                        variable, Vim's 'shell' option, or `sh`.
+        `cmd`           Shell command.  Defaults to Vim's 'shell' option,
+                        then the `$SHELL` environment variable, then `sh`.
         `cwd`           Working directory.  Defaults to the current cwd.
         `name_override` Display name override.
         `title`         Initial title used before terminal title updates arrive.

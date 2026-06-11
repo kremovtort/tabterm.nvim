@@ -15,7 +15,7 @@ local M = {}
 ---@return tabterm.Workspace?
 local function current_workspace(create)
 	local workspace, _ = state.get_workspace(state.current_tabpage(), create)
-  return workspace
+	return workspace
 end
 
 ---@param event tabterm.Event
@@ -30,7 +30,7 @@ end
 local function default_shell_spec(spec)
 	local normalized = vim.tbl_extend("force", {
 		kind = "shell",
-		cmd = vim.env.SHELL or vim.o.shell or "sh",
+		cmd = model.default_shell_cmd(),
 		cwd = (vim.uv or vim.loop).cwd() or vim.fn.getcwd(),
 	}, spec or {})
 	---@cast normalized tabterm.TerminalSpec

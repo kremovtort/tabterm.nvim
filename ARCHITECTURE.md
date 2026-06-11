@@ -95,6 +95,7 @@ Bridges Neovim autocmds and terminal integration signals into plugin events.
 Pure-ish presentation/model helpers.
 
 - workspace and terminal constructors
+- default shell command selection for shell terminal specs
 - display-name and placeholder derivation
 - shape normalization helpers
 
@@ -117,6 +118,16 @@ Examples:
 - `terminal.snapshot.notification`
 
 Rule: domain state changes belong in `reducer.lua`.
+
+## Terminal Defaults
+
+Default shell terminals use Neovim's configured shell before inherited process environment. The fallback order is:
+
+1. `vim.o.shell`
+2. `vim.env.SHELL`
+3. `sh`
+
+Explicit shell terminal specs, such as `new_shell({ cmd = ... })`, keep their provided command.
 
 ### 2. Ephemeral UI state
 
