@@ -13,7 +13,8 @@ CONTENTS                                                     *tabterm-contents*
 7. Filetypes and winbar                                |tabterm-filetypes|
 8. Lifecycle                                           |tabterm-lifecycle|
 9. Shell integration                                   |tabterm-shell-integration|
-10. Highlights                                         |tabterm-highlights|
+10. Public events                                      |tabterm-events|
+11. Highlights                                         |tabterm-highlights|
 
 ==============================================================================
 OVERVIEW                                                     *tabterm-overview*
@@ -420,6 +421,85 @@ Caveats:
         Startup files that exit early, exec another shell, or rewrite
         `PROMPT_COMMAND`, zsh `preexec`, or zsh `precmd` hooks after tabterm's
         integration loads may reduce tabterm's shell state tracking.
+
+==============================================================================
+PUBLIC EVENTS                                           *tabterm-events*
+
+Tabterm emits public Neovim `User` autocmds for workspace, terminal, and shell
+command lifecycle facts.  Handlers receive event payloads as `ev.data`: >lua
+
+  vim.api.nvim_create_autocmd("User", {
+    pattern = "TabtermShellCommandFinished",
+    callback = function(ev)
+      if ev.data and ev.data.success then
+        vim.cmd("checktime")
+      end
+    end,
+  })
+<
+
+Workspace events:
+        `TabtermWorkspaceShown`
+        `TabtermWorkspaceHidden`
+
+        Payload fields:
+        `tabpage`             Workspace tabpage.
+        `workspace_visible`   Whether the workspace is visible after the event.
+        `active_terminal_id`  Active terminal id, or nil.
+        `terminal_count`      Number of terminals in the workspace.
+
+Terminal process events:
+        `TabtermTerminalStarted`
+        `TabtermTerminalExited`
+        `TabtermTerminalStartFailed`
+
+        Common payload fields:
+        `tabpage`             Workspace tabpage.
+        `terminal_id`         Terminal id.
+        `terminal_kind`       `"shell"` or `"command"`.
+        `workspace_visible`   Whether the workspace is currently visible.
+        `terminal_active`     Whether this terminal is the active terminal.
+        `terminal_visible`    Whether this terminal is currently shown to the
+                              user.  This is true only when the workspace is
+                              visible and this terminal is active.
+        `bufnr`               Terminal buffer number, when known.
+        `cwd`                 Terminal working directory, when known.
+        `title`               Current terminal title, when known.
+        `terminal_label`      Display label for the terminal.
+
+        `TabtermTerminalStarted` also includes:
+        `channel_id`          Terminal job channel id.
+
+        `TabtermTerminalExited` also includes:
+        `exit_code`           Terminal process exit code.
+        `success`             True when `exit_code` is 0.
+
+        `TabtermTerminalStartFailed` also includes:
+        `message`             Start failure message.
+
+        Command terminal payloads also include:
+        `command`             Raw command string.
+        `command_label`       Display label for the command terminal.
+
+Shell command events:
+        `TabtermShellCommandStarted`
+        `TabtermShellCommandFinished`
+        `TabtermShellCommandAborted`
+
+        These events are emitted only when shell integration reports the
+        corresponding OSC 133 command lifecycle signal.  They include the common
+        terminal fields above, with `terminal_kind` set to `"shell"`.
+
+        Shell command payloads also include:
+        `command_label`       Shell-provided command label, when available.
+
+        `TabtermShellCommandFinished` also includes:
+        `exit_code`           Shell command exit code.
+        `success`             True when `exit_code` is 0.
+
+        Tabterm does not emit `TabtermShellStarted` or `TabtermShellExited`.
+        Use `TabtermTerminalStarted` and `TabtermTerminalExited` with
+        `ev.data.terminal_kind == "shell"` instead.
 
 ==============================================================================
 HIGHLIGHTS                                             *tabterm-highlights*

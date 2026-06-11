@@ -17,6 +17,188 @@ local M = {
 ---@type fun(cmd: tabterm.UICommand)
 local execute_command
 
+local public_events = {
+	WORKSPACE_SHOWN = "TabtermWorkspaceShown",
+	WORKSPACE_HIDDEN = "TabtermWorkspaceHidden",
+	TERMINAL_STARTED = "TabtermTerminalStarted",
+	TERMINAL_EXITED = "TabtermTerminalExited",
+	TERMINAL_START_FAILED = "TabtermTerminalStartFailed",
+	SHELL_COMMAND_STARTED = "TabtermShellCommandStarted",
+	SHELL_COMMAND_FINISHED = "TabtermShellCommandFinished",
+	SHELL_COMMAND_ABORTED = "TabtermShellCommandAborted",
+}
+
+---@param value any
+---@return string?
+local function non_empty_string(value)
+	if type(value) ~= "string" then
+		return nil
+	end
+
+	local trimmed = vim.trim(value)
+	return trimmed ~= "" and trimmed or nil
+end
+
+---@param name string
+---@param payload table
+local function emit_public_event(name, payload)
+	local function emit()
+		vim.api.nvim_exec_autocmds("User", {
+			pattern = name,
+			data = payload,
+		})
+	end
+
+	if vim.in_fast_event() then
+		vim.schedule(emit)
+	else
+		emit()
+	end
+end
+
+---@param terminal tabterm.Terminal
+---@return "shell"|"command"
+local function public_terminal_kind(terminal)
+	return terminal.spec.kind == "cmd" and "command" or "shell"
+end
+
+---@param workspace tabterm.Workspace
+---@return table
+local function workspace_payload(workspace)
+	return {
+		tabpage = workspace.runtime.tabpage,
+		workspace_visible = workspace.runtime.visible == true,
+		active_terminal_id = workspace.active_terminal_id,
+		terminal_count = #workspace.terminal_order,
+	}
+end
+
+---@param workspace tabterm.Workspace
+---@param terminal tabterm.Terminal
+---@param extra table?
+---@return table
+local function terminal_payload(workspace, terminal, extra)
+	local terminal_kind = public_terminal_kind(terminal)
+	local terminal_active = workspace.active_terminal_id == terminal.id
+	local payload = {
+		tabpage = workspace.runtime.tabpage,
+		workspace_visible = workspace.runtime.visible == true,
+		terminal_active = terminal_active,
+		terminal_visible = workspace.runtime.visible == true and terminal_active,
+		terminal_id = terminal.id,
+		terminal_kind = terminal_kind,
+		bufnr = ui_state.get_terminal_bufnr(terminal.id),
+		cwd = terminal.snapshot.cwd or terminal.spec.cwd,
+		title = non_empty_string(terminal.snapshot.title),
+		terminal_label = model.command_label(terminal),
+	}
+
+	if terminal_kind == "command" then
+		payload.command = terminal.spec.cmd
+		payload.command_label = model.command_label(terminal)
+	end
+
+	for key, value in pairs(extra or {}) do
+		payload[key] = value
+	end
+
+	return payload
+end
+
+---@param was_visible boolean
+---@param workspace tabterm.Workspace?
+local function emit_workspace_visibility_event(was_visible, workspace)
+	if not workspace then
+		return
+	end
+
+	local is_visible = workspace.runtime.visible == true
+	if is_visible == was_visible then
+		return
+	end
+
+	emit_public_event(
+		is_visible and public_events.WORKSPACE_SHOWN or public_events.WORKSPACE_HIDDEN,
+		workspace_payload(workspace)
+	)
+end
+
+---@param workspace tabterm.Workspace?
+---@param terminal_id string?
+---@return tabterm.Terminal?
+local function workspace_terminal(workspace, terminal_id)
+	return workspace and terminal_id and workspace.terminals_by_id[terminal_id] or nil
+end
+
+---@param event tabterm.Event
+---@param workspace tabterm.Workspace?
+---@param before_command_phase string?
+---@param captured_command_label string?
+local function emit_dispatch_public_event(event, workspace, before_command_phase, captured_command_label)
+	if not workspace or not event.terminal_id then
+		return
+	end
+
+	local terminal = workspace_terminal(workspace, event.terminal_id)
+	if not terminal then
+		return
+	end
+
+	if event.type == types.events.TERMINAL_PROCESS_EXITED then
+		local exit_code = event.payload and event.payload.code or 0
+		emit_public_event(
+			public_events.TERMINAL_EXITED,
+			terminal_payload(workspace, terminal, {
+				exit_code = exit_code,
+				success = exit_code == 0,
+			})
+		)
+		return
+	end
+
+	if terminal.spec.kind ~= "shell" then
+		return
+	end
+
+	if event.type == types.events.SHELL_COMMAND_EXECUTED then
+		if before_command_phase == "running" then
+			return
+		end
+
+		emit_public_event(
+			public_events.SHELL_COMMAND_STARTED,
+			terminal_payload(workspace, terminal, {
+				command_label = non_empty_string(event.payload and event.payload.command_label),
+			})
+		)
+	elseif event.type == types.events.SHELL_COMMAND_FINISHED then
+		if before_command_phase ~= "running" then
+			return
+		end
+
+		local exit_code = event.payload and event.payload.code or 0
+		emit_public_event(
+			public_events.SHELL_COMMAND_FINISHED,
+			terminal_payload(workspace, terminal, {
+				command_label = captured_command_label,
+				exit_code = exit_code,
+				success = exit_code == 0,
+			})
+		)
+	elseif event.type == types.events.SHELL_COMMAND_ABORTED then
+		if before_command_phase ~= "running" then
+			return
+		end
+
+		emit_public_event(
+			public_events.SHELL_COMMAND_ABORTED,
+			terminal_payload(workspace, terminal, {
+				command_label = captured_command_label,
+			})
+		)
+	end
+end
+
 ---@param workspace tabterm.Workspace?
 ---@return boolean
 local function stabilize_panel_for_terminal_dispose(workspace)
@@ -428,6 +610,12 @@ local function execute_start_terminal(args)
 		})
 		sync_title(workspace, terminal)
 		refresh_workspace_now(workspace)
+		emit_public_event(
+			public_events.TERMINAL_START_FAILED,
+			terminal_payload(workspace, terminal, {
+				message = terminal.snapshot.last_output_line,
+			})
+		)
 		if failed_bufnr and vim.api.nvim_buf_is_valid(failed_bufnr) then
 			vim.schedule(function()
 				ui_state.set_suppress_bufdelete(failed_bufnr)
@@ -449,6 +637,13 @@ local function execute_start_terminal(args)
 	})
 	sync_title(workspace, terminal)
 	refresh_workspace_now(workspace)
+	emit_public_event(
+		public_events.TERMINAL_STARTED,
+		terminal_payload(workspace, terminal, {
+			bufnr = bufnr,
+			channel_id = channel_id,
+		})
+	)
 end
 
 execute_command = function(cmd)
@@ -476,11 +671,18 @@ end
 ---@param opts tabterm.DispatchOpts?
 ---@return tabterm.Workspace?
 function M.dispatch(event, opts)
+	local tabpage = event.tabpage or state.current_tabpage()
+	local before_workspace = state.get_workspace(tabpage, false)
+	local before_terminal_id = event.terminal_id or (before_workspace and before_workspace.active_terminal_id or nil)
+	local before_terminal = workspace_terminal(before_workspace, before_terminal_id)
+	local was_visible = before_workspace and before_workspace.runtime.visible == true or false
+	local before_command = before_terminal and before_terminal.runtime and before_terminal.runtime.command or nil
+	local before_command_phase = before_command and before_command.phase or nil
+	local captured_command_label = before_command and non_empty_string(before_command.label) or nil
 	local terminal_refs = event.type == types.events.TABPAGE_CLOSED
 			and ui_state.terminal_refs_for_tabpage(event.tabpage)
 		or nil
 	local workspace = reducer.apply(event)
-	local tabpage = event.tabpage or state.current_tabpage()
 
 	if event.type == types.events.TABPAGE_CLOSED then
 		execute_command({ types.ui_commands.UNMOUNT, { tabpage = tabpage } })
@@ -509,6 +711,8 @@ function M.dispatch(event, opts)
 	end
 
 	update_spinner_ticker()
+	emit_workspace_visibility_event(was_visible, workspace)
+	emit_dispatch_public_event(event, workspace, before_command_phase, captured_command_label)
 
 	return workspace
 end

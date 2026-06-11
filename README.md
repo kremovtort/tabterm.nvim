@@ -45,17 +45,22 @@ vim.pack.add({
 
 require("tabterm").setup()
 
-vim.keymap.set("n", "<leader>tt", function()
-  require("tabterm").toggle()
-end, { desc = "Toggle tabterm" })
+vim.keymap.set("n", "<C-/>", function() require("tabterm").toggle() end, { desc = "Toggle tabterm" })
 
-vim.keymap.set("n", "<leader>tn", function()
-  require("tabterm").new_shell()
-end, { desc = "New tabterm shell" })
+-- Notify when a shell command finishes while tabterm is hidden.
+vim.api.nvim_create_autocmd("User", {
+  pattern = "TabtermShellCommandFinished",
+  callback = function(ev)
+    local data = ev.data or {}
+    if data.workspace_visible then
+      return
+    end
 
-vim.keymap.set("n", "<leader>tc", function()
-  require("tabterm").new_command()
-end, { desc = "New tabterm command" })
+    local label = data.command_label or data.terminal_label or "shell command"
+    local level = data.success and vim.log.levels.INFO or vim.log.levels.ERROR
+    vim.notify(("%s finished"):format(label), level)
+  end,
+})
 ```
 
 ### NixVim
@@ -107,24 +112,14 @@ Then enable and configure it through `plugins.tabterm` in your NixVim module:
 {
   plugins.tabterm = {
     enable = true;
-    settings = {
-      ui = {
-        border = "round";
-        sidebar_width = 30;
-        float = {
-          width = 0.90;
-          height = 0.90;
-        };
-      };
+    settings = { 
+        # :h tabterm-configuration
     };
   };
 
   keymaps = [
     {
-      mode = [
-        "n"
-        "t"
-      ];
+      mode = [ "i" "n" "t" ];
       key = "<C-/>";
       action.__raw = ''function() require("tabterm").toggle() end'';
       options.desc = "Toggle tab terminals";
@@ -213,9 +208,9 @@ vim.keymap.set("n", "<leader>tc", tabterm.new_command, { desc = "New tabterm com
 | --- | --- |
 | `setup(opts)` | Merge options with defaults, define highlights, and install autocmds. |
 | `open()` | Open the workspace, creating a default shell if needed. |
-| `hide()` | Hide the workspace, restore editor focus when possible, and schedule `:checktime`. |
-| `close()` | Close tabterm's floating windows without focus restoration or `:checktime`. |
-| `toggle()` | Toggle the workspace. When toggling closed, use `hide()` behavior and schedule `:checktime`. |
+| `hide()` | Hide the workspace, restore editor focus when possible. |
+| `close()` | Close tabterm's floating windows without focus restoration. |
+| `toggle()` | Toggle the workspace. |
 | `new_shell(spec?)` | Create and start a shell terminal. |
 | `new_command(cmd?)` | Create and start a command terminal, prompting when `cmd` is omitted. |
 | `start_active()` | Start or restart the active terminal. |

@@ -310,18 +310,33 @@ local function apply_unsanitized(event)
 	end
 
 	if event.type == types.events.SHELL_COMMAND_INPUT_STARTED then
-		terminal.runtime.command.phase = "editing"
+		if terminal.runtime.command.phase ~= "running" then
+			terminal.runtime.command.phase = "editing"
+		end
 		return workspace
 	end
 
 	if event.type == types.events.SHELL_COMMAND_EXECUTED then
-		terminal.runtime.command.phase = "running"
 		local label = event.payload and event.payload.command_label or nil
-		terminal.runtime.command.label = type(label) == "string" and vim.trim(label) ~= "" and label or nil
+		local normalized_label = type(label) == "string" and vim.trim(label) ~= "" and label or nil
+
+		if terminal.runtime.command.phase == "running" then
+			if normalized_label then
+				terminal.runtime.command.label = normalized_label
+			end
+			return workspace
+		end
+
+		terminal.runtime.command.phase = "running"
+		terminal.runtime.command.label = normalized_label
 		return workspace
 	end
 
 	if event.type == types.events.SHELL_COMMAND_FINISHED then
+		if terminal.runtime.command.phase ~= "running" then
+			return workspace
+		end
+
 		terminal.runtime.command.phase = "prompt"
 		terminal.snapshot.last_result.kind = (event.payload.code or 0) == 0 and "success" or "error"
 		terminal.snapshot.last_result.code = event.payload.code or 0
@@ -337,6 +352,10 @@ local function apply_unsanitized(event)
 	end
 
 	if event.type == types.events.SHELL_COMMAND_ABORTED then
+		if terminal.runtime.command.phase ~= "running" then
+			return workspace
+		end
+
 		terminal.runtime.command.phase = "prompt"
 		terminal.runtime.command.label = nil
 		return workspace
