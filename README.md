@@ -4,6 +4,10 @@
   <b>A tab-scoped floating terminal workspace for Neovim</b>
 </p>
 
+<p align="center">
+  <img src="./assets/tabterm-screenshot.png" alt="tabterm.nvim screenshot" width="900">
+</p>
+
 `tabterm.nvim` gives each Neovim tabpage its own floating terminal workspace:
 a sidebar of terminal tabs on the left, and a panel for the active terminal on
 the right.
